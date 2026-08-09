@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}דף בית{% endblock %}
+{% block content %}
+<h1 class="mt-4 mb-1">ברוכים הבאים</h1>
+<p class="text-muted mb-4">סקירה כללית של המערכת - לחצו על אחד הריבועים כדי לעבור לניהול המלא</p>
+<div class="row g-4">
+  <div class="col-6 col-md-3">
+    <a class="text-decoration-none text-dark" href="{{ url_for('customers_list') }}">
+      <div class="card dashboard-card text-center shadow-sm h-100 border-0">
+        <div class="card-body">
+          <i class="bi bi-people fs-1 text-primary"></i>
+          <div class="display-6">{{ customers_count }}</div>
+          <div class="text-muted">לקוחות פעילים</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a class="text-decoration-none text-dark" href="{{ url_for('appointments_list') }}">
+      <div class="card dashboard-card text-center shadow-sm h-100 border-0">
+        <div class="card-body">
+          <i class="bi bi-calendar-check fs-1 text-success"></i>
+          <div class="display-6">{{ appointments_count }}</div>
+          <div class="text-muted">תורים פעילים</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a class="text-decoration-none text-dark" href="{{ url_for('invoices_list') }}">
+      <div class="card dashboard-card text-center shadow-sm h-100 border-0">
+        <div class="card-body">
+          <i class="bi bi-receipt fs-1 text-warning"></i>
+          <div class="display-6">{{ invoices_count }}</div>
+          <div class="text-muted">חשבוניות פעילות</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a class="text-decoration-none text-dark" href="{{ url_for('leads_list') }}">
+      <div class="card dashboard-card text-center shadow-sm h-100 border-0">
+        <div class="card-body">
+          <i class="bi bi-person-lines-fill fs-1 text-info"></i>
+          <div class="display-6">{{ leads_count }}</div>
+          <div class="text-muted">לידים פעילים</div>
+        </div>
+      </div>
+    </a>
+  </div>
+</div>
+
+<div class="row g-4 mt-1">
+  <div class="col-md-6">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <h5 class="card-title"><i class="bi bi-person-plus"></i> הוספה מהירה</h5>
+        <div class="d-flex flex-wrap gap-2 mt-3">
+          <a href="{{ url_for('customers_list') }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-plus-circle"></i> לקוח חדש</a>
+          <a href="{{ url_for('appointments_list') }}" class="btn btn-outline-success btn-sm"><i class="bi bi-plus-circle"></i> תור חדש</a>
+          <a href="{{ url_for('invoices_list') }}" class="btn btn-outline-warning btn-sm"><i class="bi bi-plus-circle"></i> חשבונית חדשה</a>
+          <a href="{{ url_for('leads_list') }}" class="btn btn-outline-info btn-sm"><i class="bi bi-plus-circle"></i> ליד חדש</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <h5 class="card-title"><i class="bi bi-trash"></i> רשומות מחוקות</h5>
+        <p class="text-muted small mb-3">מחיקה במערכת היא רכה - ניתן לשחזר כל רשומה שנמחקה.</p>
+        <div class="d-flex flex-wrap gap-2">
+          <a href="{{ url_for('customers_deleted') }}" class="btn btn-outline-secondary btn-sm">לקוחות מחוקים</a>
+          <a href="{{ url_for('appointments_deleted') }}" class="btn btn-outline-secondary btn-sm">תורים מחוקים</a>
+          <a href="{{ url_for('invoices_deleted') }}" class="btn btn-outline-secondary btn-sm">חשבוניות מחוקות</a>
+          <a href="{{ url_for('leads_deleted') }}" class="btn btn-outline-secondary btn-sm">לידים מחוקים</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}תורים{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mt-4 mb-3 flex-wrap gap-2">
+  <h2 class="mb-0">
+    <i class="bi bi-calendar-check"></i> תורים
+    {% if mode == 'deleted' %}<span class="text-muted fs-6">(מחוקים)</span>
+    {% elif mode == 'all' %}<span class="text-muted fs-6">(פעילים ומחוקים)</span>{% endif %}
+  </h2>
+  {% set active_url = url_for('appointments_list') %}
+  {% set deleted_url = url_for('appointments_deleted') %}
+  {% set all_url = url_for('appointments_all') %}
+  {% include "_mode_nav.html" %}
+</div>
+
+{% if mode == 'active' %}
+<div class="card mb-4 shadow-sm border-0">
+  <div class="card-body">
+    <h5 class="card-title"><i class="bi bi-calendar-plus"></i> הוספת תור חדש</h5>
+    <form method="post" action="{{ url_for('appointments_add') }}" class="row g-2">
+      <div class="col-md-3">
+        <select required name="customer_id" class="form-select">
+          <option value="" disabled selected>בחר לקוח</option>
+          {% for c in customers %}
+            <option value="{{ c[0] }}">{{ c[1] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3"><input required name="service_type" class="form-control" placeholder="סוג שירות"></div>
+      <div class="col-md-2"><input required name="appointment_date" type="date" class="form-control"></div>
+      <div class="col-md-2"><input required name="appointment_time" type="time" class="form-control"></div>
+      <div class="col-md-2"><button class="btn btn-primary w-100" type="submit"><i class="bi bi-plus-lg"></i> הוסף</button></div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <div class="input-group" style="max-width: 320px;">
+    <span class="input-group-text"><i class="bi bi-search"></i></span>
+    <input type="text" class="form-control" placeholder="חיפוש תור..." oninput="liveFilter(this, 'appointments-table')">
+  </div>
+  <span class="text-muted small">מציג <span id="appointments-table-count">{{ appointments|length }}</span> רשומות</span>
+</div>
+
+<div class="table-responsive bg-white rounded shadow-sm">
+<table class="table table-striped mb-0" id="appointments-table">
+  <thead><tr><th>#</th><th>לקוח</th><th>סוג שירות</th><th>תאריך</th><th>שעה</th><th>סטטוס</th><th>מחיקה</th><th>פעולות</th></tr></thead>
+  <tbody>
+  {% for a in appointments %}
+    <tr>
+      <td>{{ a[0] }}</td>
+      <td><a href="{{ url_for('customer_detail', customer_id=a[1]) }}">{{ customer_names.get(a[1], a[1]) }}</a></td>
+      <td>{{ a[2] }}</td>
+      <td>{{ a[3] }}</td>
+      <td>{{ a[4] }}</td>
+      <td>
+        {% if not a[6] %}
+        <form method="post" action="{{ url_for('appointments_status', appointment_id=a[0]) }}" class="d-flex gap-1">
+          <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+            {% for s in ['ממתין', 'בוצע', 'בוטל'] %}
+              <option value="{{ s }}" {% if a[5] == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+        </form>
+        {% else %}
+          {% set badge_class = {'ממתין': 'bg-warning text-dark', 'בוצע': 'bg-success', 'בוטל': 'bg-danger'}.get(a[5], 'bg-light text-dark') %}
+          <span class="badge {{ badge_class }}">{{ a[5] }}</span>
+        {% endif %}
+      </td>
+      <td>
+        {% if a[6] %}<span class="badge bg-secondary">מחוק</span>
+        {% else %}<span class="badge bg-success">פעיל</span>{% endif %}
+      </td>
+      <td>
+        {% if not a[6] %}
+        <form method="post" action="{{ url_for('appointments_delete', appointment_id=a[0]) }}" class="d-inline">
+          <button class="btn btn-sm btn-outline-danger" title="מחיקה"><i class="bi bi-trash"></i></button>
+        </form>
+        {% else %}
+        <form method="post" action="{{ url_for('appointments_undelete', appointment_id=a[0]) }}" class="d-inline">
+          <button class="btn btn-sm btn-outline-success" title="שחזור"><i class="bi bi-arrow-counterclockwise"></i> שחזר</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="8" class="text-center text-muted py-4"><i class="bi bi-inbox fs-3 d-block mb-2"></i>אין רשומות להצגה</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}לקוחות{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mt-4 mb-3 flex-wrap gap-2">
+  <h2 class="mb-0">
+    <i class="bi bi-people"></i> לקוחות
+    {% if mode == 'deleted' %}<span class="text-muted fs-6">(מחוקים)</span>
+    {% elif mode == 'all' %}<span class="text-muted fs-6">(פעילים ומחוקים)</span>{% endif %}
+  </h2>
+  {% set active_url = url_for('customers_list') %}
+  {% set deleted_url = url_for('customers_deleted') %}
+  {% set all_url = url_for('customers_all') %}
+  {% include "_mode_nav.html" %}
+</div>
+
+{% if mode == 'active' %}
+<div class="card mb-4 shadow-sm border-0">
+  <div class="card-body">
+    <h5 class="card-title"><i class="bi bi-person-plus"></i> הוספת לקוח חדש</h5>
+    <form method="post" action="{{ url_for('customers_add') }}" class="row g-2">
+      <div class="col-md-3"><input required name="full_name" class="form-control" placeholder="שם מלא"></div>
+      <div class="col-md-3"><input name="phone" class="form-control" placeholder="טלפון"></div>
+      <div class="col-md-3"><input name="email" type="email" class="form-control" placeholder="אימייל"></div>
+      <div class="col-md-2"><input name="address" class="form-control" placeholder="כתובת"></div>
+      <div class="col-md-1"><button class="btn btn-primary w-100" type="submit"><i class="bi bi-plus-lg"></i></button></div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <div class="input-group" style="max-width: 320px;">
+    <span class="input-group-text"><i class="bi bi-search"></i></span>
+    <input type="text" class="form-control" placeholder="חיפוש לקוח..." oninput="liveFilter(this, 'customers-table')">
+  </div>
+  <span class="text-muted small">מציג <span id="customers-table-count">{{ customers|length }}</span> רשומות</span>
+</div>
+
+<div class="table-responsive bg-white rounded shadow-sm">
+<table class="table table-striped mb-0" id="customers-table">
+  <thead><tr><th>#</th><th>שם</th><th>טלפון</th><th>אימייל</th><th>כתובת</th><th>סטטוס</th><th>פעולות</th></tr></thead>
+  <tbody>
+  {% for c in customers %}
+    <tr>
+      <td>{{ c[0] }}</td>
+      <td><a href="{{ url_for('customer_detail', customer_id=c[0]) }}">{{ c[1] }}</a></td>
+      <td>{{ c[2] or '' }}</td>
+      <td>{{ c[3] or '' }}</td>
+      <td>{{ c[4] or '' }}</td>
+      <td>
+        {% if c[5] %}<span class="badge bg-secondary">מחוק</span>
+        {% else %}<span class="badge bg-success">פעיל</span>{% endif %}
+      </td>
+      <td>
+        {% if not c[5] %}
+        <a href="{{ url_for('customer_detail', customer_id=c[0]) }}" class="btn btn-sm btn-outline-primary" title="צפייה"><i class="bi bi-eye"></i></a>
+        <form method="post" action="{{ url_for('customers_delete', customer_id=c[0]) }}" class="d-inline"
+              onsubmit="return confirm('למחוק את הלקוח? פעולה זו תמחק גם את התורים והחשבוניות שלו.');">
+          <button class="btn btn-sm btn-outline-danger" title="מחיקה"><i class="bi bi-trash"></i></button>
+        </form>
+        {% else %}
+        <form method="post" action="{{ url_for('customers_undelete', customer_id=c[0]) }}" class="d-inline">
+          <button class="btn btn-sm btn-outline-success" title="שחזור"><i class="bi bi-arrow-counterclockwise"></i> שחזר</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="7" class="text-center text-muted py-4"><i class="bi bi-inbox fs-3 d-block mb-2"></i>אין רשומות להצגה</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

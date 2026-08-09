@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+
+# Database - auto-generated at runtime and auto-seeded with demo data when empty
+appointments.db
+
+# Editor / tooling local config
+.vscode/
+.claude/
+
+# Logs and personal scratch files
+flask_log.txt
+testy.sql

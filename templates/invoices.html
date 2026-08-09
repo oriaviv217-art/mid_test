@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}חשבוניות{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mt-4 mb-3 flex-wrap gap-2">
+  <h2 class="mb-0">
+    <i class="bi bi-receipt"></i> חשבוניות
+    {% if mode == 'deleted' %}<span class="text-muted fs-6">(מחוקות)</span>
+    {% elif mode == 'all' %}<span class="text-muted fs-6">(פעילות ומחוקות)</span>{% endif %}
+  </h2>
+  {% set active_url = url_for('invoices_list') %}
+  {% set deleted_url = url_for('invoices_deleted') %}
+  {% set all_url = url_for('invoices_all') %}
+  {% include "_mode_nav.html" %}
+</div>
+
+{% if mode == 'active' %}
+<div class="card mb-4 shadow-sm border-0">
+  <div class="card-body">
+    <h5 class="card-title"><i class="bi bi-file-earmark-plus"></i> הוספת חשבונית</h5>
+    <form method="post" action="{{ url_for('invoices_add') }}" class="row g-2">
+      <div class="col-md-3"><input required name="invoice_number" class="form-control" placeholder="מספר חשבונית"></div>
+      <div class="col-md-3">
+        <select required name="customer_id" class="form-select">
+          <option value="" disabled selected>בחר לקוח</option>
+          {% for c in customers %}
+            <option value="{{ c[0] }}">{{ c[1] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2"><input required name="amount" type="number" step="0.01" class="form-control" placeholder="סכום (₪)"></div>
+      <div class="col-md-2"><input required name="invoice_date" type="date" class="form-control"></div>
+      <div class="col-md-2"><button class="btn btn-primary w-100" type="submit"><i class="bi bi-plus-lg"></i> הוסף</button></div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <div class="input-group" style="max-width: 320px;">
+    <span class="input-group-text"><i class="bi bi-search"></i></span>
+    <input type="text" class="form-control" placeholder="חיפוש חשבונית..." oninput="liveFilter(this, 'invoices-table')">
+  </div>
+  <span class="text-muted small">מציג <span id="invoices-table-count">{{ invoices|length }}</span> רשומות
+    {% if invoices %}&middot; סה"כ ₪{{ "%.2f"|format(invoices|sum(attribute=4)) }}{% endif %}
+  </span>
+</div>
+
+<div class="table-responsive bg-white rounded shadow-sm">
+<table class="table table-striped mb-0" id="invoices-table">
+  <thead><tr><th>מזהה</th><th>מספר חשבונית</th><th>לקוח</th><th>סכום</th><th>תאריך</th><th>סטטוס</th><th>פעולות</th></tr></thead>
+  <tbody>
+  {% for inv in invoices %}
+    <tr>
+      <td>{{ inv[1] }}</td>
+      <td>{{ inv[2] }}</td>
+      <td><a href="{{ url_for('customer_detail', customer_id=inv[3]) }}">{{ customer_names.get(inv[3], inv[3]) }}</a></td>
+      <td>₪{{ "%.2f"|format(inv[4]) }}</td>
+      <td>{{ inv[0] }}</td>
+      <td>
+        {% if inv[5] %}<span class="badge bg-secondary">מחוקה</span>
+        {% else %}<span class="badge bg-success">פעילה</span>{% endif %}
+      </td>
+      <td>
+        {% if not inv[5] %}
+        <form method="post" action="{{ url_for('invoices_delete', invoice_id=inv[1]) }}" class="d-inline">
+          <button class="btn btn-sm btn-outline-danger" title="מחיקה"><i class="bi bi-trash"></i></button>
+        </form>
+        {% else %}
+        <form method="post" action="{{ url_for('invoices_undelete', invoice_id=inv[1]) }}" class="d-inline">
+          <button class="btn btn-sm btn-outline-success" title="שחזור"><i class="bi bi-arrow-counterclockwise"></i> שחזר</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="7" class="text-center text-muted py-4"><i class="bi bi-inbox fs-3 d-block mb-2"></i>אין רשומות להצגה</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

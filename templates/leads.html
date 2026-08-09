@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}לידים{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mt-4 mb-3 flex-wrap gap-2">
+  <h2 class="mb-0">
+    <i class="bi bi-person-lines-fill"></i> לידים
+    {% if mode == 'deleted' %}<span class="text-muted fs-6">(מחוקים)</span>
+    {% elif mode == 'all' %}<span class="text-muted fs-6">(פעילים ומחוקים)</span>{% endif %}
+  </h2>
+  {% set active_url = url_for('leads_list') %}
+  {% set deleted_url = url_for('leads_deleted') %}
+  {% set all_url = url_for('leads_all') %}
+  {% include "_mode_nav.html" %}
+</div>
+
+{% if mode == 'active' %}
+<div class="card mb-4 shadow-sm border-0">
+  <div class="card-body">
+    <h5 class="card-title"><i class="bi bi-person-plus"></i> הוספת ליד חדש</h5>
+    <form method="post" action="{{ url_for('leads_add') }}" class="row g-2">
+      <div class="col-md-3"><input required name="full_name" class="form-control" placeholder="שם מלא"></div>
+      <div class="col-md-2"><input name="phone" class="form-control" placeholder="טלפון"></div>
+      <div class="col-md-2"><input name="source" class="form-control" placeholder="מקור פנייה"></div>
+      <div class="col-md-3"><input name="notes" class="form-control" placeholder="הערות"></div>
+      <div class="col-md-2"><button class="btn btn-primary w-100" type="submit"><i class="bi bi-plus-lg"></i> הוסף</button></div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <div class="input-group" style="max-width: 320px;">
+    <span class="input-group-text"><i class="bi bi-search"></i></span>
+    <input type="text" class="form-control" placeholder="חיפוש ליד..." oninput="liveFilter(this, 'leads-table')">
+  </div>
+  <span class="text-muted small">מציג <span id="leads-table-count">{{ leads|length }}</span> רשומות</span>
+</div>
+
+<div class="table-responsive bg-white rounded shadow-sm">
+<table class="table table-striped mb-0" id="leads-table">
+  <thead><tr><th>#</th><th>שם</th><th>טלפון</th><th>מקור</th><th>סטטוס</th><th>הערות</th><th>מחיקה</th><th>פעולות</th></tr></thead>
+  <tbody>
+  {% for l in leads %}
+    <tr>
+      <td>{{ l[0] }}</td>
+      <td>{{ l[1] }}</td>
+      <td>{{ l[2] or '' }}</td>
+      <td>{{ l[3] or '' }}</td>
+      <td>
+        {% if not l[6] %}
+        <form method="post" action="{{ url_for('leads_status', lead_id=l[0]) }}" class="d-flex gap-1">
+          <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+            {% for s in ['חדש', 'בטיפול', 'הפך ללקוח', 'נדחה'] %}
+              <option value="{{ s }}" {% if l[4] == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+        </form>
+        {% else %}
+          {% set badge_class = {'חדש': 'bg-info text-dark', 'בטיפול': 'bg-warning text-dark', 'הפך ללקוח': 'bg-success', 'נדחה': 'bg-danger'}.get(l[4], 'bg-light text-dark') %}
+          <span class="badge {{ badge_class }}">{{ l[4] }}</span>
+        {% endif %}
+      </td>
+      <td>{{ l[5] or '' }}</td>
+      <td>
+        {% if l[6] %}<span class="badge bg-secondary">מחוק</span>
+        {% else %}<span class="badge bg-success">פעיל</span>{% endif %}
+      </td>
+      <td class="d-flex flex-wrap gap-1">
+        {% if not l[6] %}
+        <form method="post" action="{{ url_for('leads_convert', lead_id=l[0]) }}">
+          <button class="btn btn-sm btn-outline-primary" title="המרה ללקוח"><i class="bi bi-person-check"></i></button>
+        </form>
+        <form method="post" action="{{ url_for('leads_delete', lead_id=l[0]) }}">
+          <button class="btn btn-sm btn-outline-danger" title="מחיקה"><i class="bi bi-trash"></i></button>
+        </form>
+        {% else %}
+        <form method="post" action="{{ url_for('leads_undelete', lead_id=l[0]) }}">
+          <button class="btn btn-sm btn-outline-success"><i class="bi bi-arrow-counterclockwise"></i> שחזר</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="8" class="text-center text-muted py-4"><i class="bi bi-inbox fs-3 d-block mb-2"></i>אין רשומות להצגה</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

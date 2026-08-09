@@ -1,0 +1,5 @@
+<div class="btn-group" role="group">
+  <a href="{{ active_url }}" class="btn btn-sm {{ 'btn-primary' if mode == 'active' else 'btn-outline-primary' }}">פעילים</a>
+  <a href="{{ deleted_url }}" class="btn btn-sm {{ 'btn-secondary' if mode == 'deleted' else 'btn-outline-secondary' }}">מחוקים</a>
+  <a href="{{ all_url }}" class="btn btn-sm {{ 'btn-dark' if mode == 'all' else 'btn-outline-dark' }}">הכל</a>
+</div>
