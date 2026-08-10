@@ -2,6 +2,9 @@
 # Database - auto-generated at runtime and auto-seeded with demo data when empty
 appointments.db
 
+# Generated invoice PDFs - contain customer PII, regenerated automatically
+invoices_pdf/
+
 # Editor / tooling local config
 .vscode/
 .claude/

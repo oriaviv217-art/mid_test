@@ -1,11 +1,22 @@
 import os
 import threading
 import webbrowser
+from datetime import date
 
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file
 
 from db import init_db
 from seed_data import seed_if_empty
+from validators import (
+    validate_name,
+    validate_phone,
+    validate_email,
+    validate_required_text,
+    validate_date,
+    validate_time,
+    validate_amount,
+    validate_not_past_date,
+)
 from appointments_manager import (
     add_appointment,
     get_all_appointments,
@@ -22,10 +33,13 @@ from customers_manager import (
     get_all_customers_including_deleted,
     delete_customer,
     undelete_customer,
+    deactivate_customer,
+    activate_customer,
     add_invoice,
     get_all_invoices,
     get_all_deleted_invoices,
     get_all_invoices_including_deleted,
+    get_invoice_by_id,
     delete_invoice,
     undelete_invoice,
     get_customer_invoices,
@@ -42,6 +56,15 @@ from leads_manager import (
     convert_lead_to_customer
 )
 
+SERVICE_TYPES = [
+    "ייעוץ פנסיוני",
+    "תכנון פיננסי",
+    "ייעוץ השקעות",
+    "בדיקת תיק ביטוח",
+    "פגישת מעקב",
+    "ייעוץ משכנתא",
+]
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-me")
 
@@ -50,9 +73,13 @@ seed_if_empty()
 
 
 @app.context_processor
-def inject_customer_names():
-    """מאפשרת לתבניות להציג את שם הלקוח לצד מזהה הלקוח (גם עבור לקוחות מחוקים)."""
-    return {"customer_names": {c[0]: c[1] for c in get_all_customers_including_deleted()}}
+def inject_globals():
+    """מאפשרת לתבניות להציג את שם הלקוח לצד מזהה הלקוח, ומספקת ערכים גלובליים לתבניות."""
+    return {
+        "customer_names": {c[0]: c[1] for c in get_all_customers_including_deleted()},
+        "today": date.today().isoformat(),
+        "service_types": SERVICE_TYPES,
+    }
 
 
 # ==================== דף בית ====================
@@ -88,16 +115,20 @@ def customers_all():
 @app.route("/customers/add", methods=["POST"])
 def customers_add():
     full_name = request.form.get("full_name", "").strip()
-    if not full_name:
-        flash("יש להזין שם מלא", "error")
-        return redirect(url_for("customers_list"))
-    new_id = add_customer(
-        full_name,
-        request.form.get("phone") or None,
-        request.form.get("email") or None,
-        request.form.get("address") or None,
-    )
-    flash(f"הלקוח נוסף בהצלחה! מספר לקוח: {new_id}", "success")
+    phone = request.form.get("phone") or None
+    email = request.form.get("email") or None
+    address = request.form.get("address") or None
+
+    for is_valid, error in (validate_name(full_name), validate_phone(phone), validate_email(email)):
+        if not is_valid:
+            flash(error, "error")
+            return redirect(url_for("customers_list"))
+
+    new_id = add_customer(full_name, phone, email, address)
+    if new_id is not None:
+        flash(f"הלקוח נוסף בהצלחה! מספר לקוח: {new_id}", "success")
+    else:
+        flash("שגיאה בהוספת הלקוח - ייתכן שלקוח עם אותו שם וטלפון כבר קיים במערכת", "error")
     return redirect(url_for("customers_list"))
 
 
@@ -117,6 +148,24 @@ def customers_undelete(customer_id):
     else:
         flash("לא נמצא לקוח מחוק עם המספר הזה", "error")
     return redirect(request.referrer or url_for("customers_deleted"))
+
+
+@app.route("/customers/<int:customer_id>/deactivate", methods=["POST"])
+def customers_deactivate(customer_id):
+    if deactivate_customer(customer_id):
+        flash("הלקוח סומן כלא פעיל", "success")
+    else:
+        flash("לא נמצא לקוח פעיל עם המספר הזה", "error")
+    return redirect(request.referrer or url_for("customers_list"))
+
+
+@app.route("/customers/<int:customer_id>/activate", methods=["POST"])
+def customers_activate(customer_id):
+    if activate_customer(customer_id):
+        flash("הלקוח סומן כפעיל", "success")
+    else:
+        flash("לא נמצא לקוח עם המספר הזה", "error")
+    return redirect(request.referrer or url_for("customers_list"))
 
 
 @app.route("/customers/<int:customer_id>")
@@ -155,17 +204,31 @@ def invoices_all():
 
 @app.route("/invoices/add", methods=["POST"])
 def invoices_add():
-    new_id = add_invoice(
-        request.form.get("invoice_number", "").strip(),
-        request.form.get("customer_id"),
-        request.form.get("amount"),
-        request.form.get("invoice_date"),
-    )
+    customer_id = request.form.get("customer_id")
+    amount = request.form.get("amount")
+    invoice_date = request.form.get("invoice_date")
+
+    for is_valid, error in (validate_amount(amount), validate_not_past_date(invoice_date)):
+        if not is_valid:
+            flash(error, "error")
+            return redirect(request.referrer or url_for("invoices_list"))
+
+    new_id = add_invoice(customer_id, amount, invoice_date)
     if new_id is not None:
         flash(f"החשבונית נוצרה בהצלחה! מזהה: {new_id}", "success")
     else:
-        flash("שגיאה ביצירת החשבונית (מספר חשבונית כפול או לקוח לא קיים)", "error")
+        flash("שגיאה ביצירת החשבונית - ודאו שהלקוח קיים במערכת", "error")
     return redirect(request.referrer or url_for("invoices_list"))
+
+
+@app.route("/invoices/<int:invoice_id>/pdf")
+def invoices_pdf(invoice_id):
+    invoice = get_invoice_by_id(invoice_id)
+    pdf_path = invoice[6] if invoice else None
+    if not pdf_path or not os.path.exists(pdf_path):
+        flash("קובץ ה-PDF עבור חשבונית זו אינו זמין", "error")
+        return redirect(request.referrer or url_for("invoices_list"))
+    return send_file(pdf_path, as_attachment=False, download_name=os.path.basename(pdf_path))
 
 
 @app.route("/invoices/<int:invoice_id>/delete", methods=["POST"])
@@ -205,12 +268,22 @@ def appointments_all():
 
 @app.route("/appointments/add", methods=["POST"])
 def appointments_add():
-    new_id = add_appointment(
-        request.form.get("customer_id"),
-        request.form.get("service_type", "").strip(),
-        request.form.get("appointment_date"),
-        request.form.get("appointment_time"),
+    customer_id = request.form.get("customer_id")
+    service_type = request.form.get("service_type", "").strip()
+    appointment_date = request.form.get("appointment_date")
+    appointment_time = request.form.get("appointment_time")
+
+    checks = (
+        validate_required_text(service_type, "סוג שירות", max_length=100),
+        validate_date(appointment_date),
+        validate_time(appointment_time),
     )
+    for is_valid, error in checks:
+        if not is_valid:
+            flash(error, "error")
+            return redirect(url_for("appointments_list"))
+
+    new_id = add_appointment(customer_id, service_type, appointment_date, appointment_time)
     if new_id is not None:
         flash(f"התור נוצר בהצלחה! מספר תור: {new_id}", "success")
     else:
@@ -266,16 +339,20 @@ def leads_all():
 @app.route("/leads/add", methods=["POST"])
 def leads_add():
     full_name = request.form.get("full_name", "").strip()
-    if not full_name:
-        flash("יש להזין שם מלא", "error")
-        return redirect(url_for("leads_list"))
-    new_id = add_lead(
-        full_name,
-        request.form.get("phone") or None,
-        request.form.get("source") or None,
-        request.form.get("notes") or None,
-    )
-    flash(f"הליד נוסף בהצלחה! מספר ליד: {new_id}", "success")
+    phone = request.form.get("phone") or None
+    source = request.form.get("source") or None
+    notes = request.form.get("notes") or None
+
+    for is_valid, error in (validate_name(full_name), validate_phone(phone)):
+        if not is_valid:
+            flash(error, "error")
+            return redirect(url_for("leads_list"))
+
+    new_id = add_lead(full_name, phone, source, notes)
+    if new_id is not None:
+        flash(f"הליד נוסף בהצלחה! מספר ליד: {new_id}", "success")
+    else:
+        flash("שגיאה בהוספת הליד", "error")
     return redirect(url_for("leads_list"))
 
 

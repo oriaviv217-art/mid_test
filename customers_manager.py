@@ -1,17 +1,59 @@
 import sqlite3
+import uuid
+
 from db import get_connection
+from invoice_pdf import generate_invoice_pdf
+from validators import validate_name, validate_phone, validate_email, validate_amount, validate_not_past_date
 
 
 
 # ---------- ניהול לקוחות ----------
 
+def _find_duplicate_customer(full_name, phone):
+    """מחפשת לקוח פעיל קיים עם אותו שם וטלפון (ללא רגישות לרישיות/רווחים). מחזירה שורה או None."""
+    conn = get_connection()
+    try:
+        normalized_name = full_name.strip().lower()
+        normalized_phone = (phone or "").strip()
+        cursor = conn.execute(
+            """
+            SELECT * FROM customers
+            WHERE is_deleted = 0
+              AND LOWER(TRIM(full_name)) = ?
+              AND TRIM(IFNULL(phone, '')) = ?
+            """,
+            (normalized_name, normalized_phone),
+        )
+        return cursor.fetchone()
+    finally:
+        conn.close()
+
+
 def add_customer(full_name, phone, email, address):
-    """מוסיפה לקוח חדש למערכת ומחזירה את מספר הלקוח שנוצר."""
+    """מוסיפה לקוח חדש למערכת ומחזירה את מספר הלקוח שנוצר, או None אם הקלט אינו תקין או שהלקוח כבר קיים."""
+    is_valid, error = validate_name(full_name)
+    if not is_valid:
+        print(f"שגיאה: {error}")
+        return None
+    is_valid, error = validate_phone(phone)
+    if not is_valid:
+        print(f"שגיאה: {error}")
+        return None
+    is_valid, error = validate_email(email)
+    if not is_valid:
+        print(f"שגיאה: {error}")
+        return None
+
+    duplicate = _find_duplicate_customer(full_name, phone)
+    if duplicate is not None:
+        print(f"שגיאה: לקוח עם אותו שם וטלפון כבר קיים במערכת (מספר לקוח: {duplicate[0]})")
+        return None
+
     conn = get_connection()
     try:
         cursor = conn.execute(
             "INSERT INTO customers (full_name, phone, email, address) VALUES (?,?,?,?)",
-            (full_name, phone, email, address)
+            (full_name.strip(), phone, email, address)
         )
         conn.commit()
         return cursor.lastrowid
@@ -93,23 +135,86 @@ def undelete_customer(customer_id):
         conn.close()
 
 
-# ---------- ניהול חשבוניות מס ----------
-
-def add_invoice(invoice_number, customer_id, amount, invoice_date):
-    """יוצרת חשבונית מס עבור לקוח קיים ומחזירה את מזהה החשבונית."""
+def deactivate_customer(customer_id):
+    """מסמנת לקוח פעיל כ'לא פעיל' (סטטוס עסקי, שונה ממחיקה - הלקוח נשאר גלוי בכל הרשימות)."""
     conn = get_connection()
     try:
         cursor = conn.execute(
-            "INSERT INTO invoices (invoice_number, customer_id, amount, invoice_date) VALUES (?,?,?,?)",
-            (invoice_number, customer_id, amount, invoice_date)
+            "UPDATE customers SET is_active = 0 WHERE customer_id = ? AND is_deleted = 0",
+            (customer_id,)
         )
         conn.commit()
-        return cursor.lastrowid
-    except sqlite3.IntegrityError as e:
-        if "UNIQUE" in str(e):
-            print("שגיאה: מספר חשבונית זה כבר קיים במערכת")
-        else:
-            print("שגיאה: מספר לקוח לא קיים במערכת")
+        found = cursor.rowcount > 0
+        if not found:
+            print("לא נמצא לקוח פעיל עם המספר הזה")
+        return found
+    finally:
+        conn.close()
+
+
+def activate_customer(customer_id):
+    """מסמנת לקוח 'לא פעיל' בחזרה כ'פעיל'."""
+    conn = get_connection()
+    try:
+        cursor = conn.execute(
+            "UPDATE customers SET is_active = 1 WHERE customer_id = ? AND is_deleted = 0",
+            (customer_id,)
+        )
+        conn.commit()
+        found = cursor.rowcount > 0
+        if not found:
+            print("לא נמצא לקוח עם המספר הזה")
+        return found
+    finally:
+        conn.close()
+
+
+# ---------- ניהול חשבוניות מס ----------
+
+def add_invoice(customer_id, amount, invoice_date):
+    """
+    יוצרת חשבונית מס עבור לקוח קיים: מספר החשבונית נוצר אוטומטית (INV-000001 וכו'),
+    וקובץ PDF נוצר ונשמר בתיקיית invoices_pdf. מחזירה את מזהה החשבונית, או None בעת כשל.
+    """
+    is_valid, error = validate_amount(amount)
+    if not is_valid:
+        print(f"שגיאה: {error}")
+        return None
+    is_valid, error = validate_not_past_date(invoice_date)
+    if not is_valid:
+        print(f"שגיאה: {error}")
+        return None
+    amount = float(amount)
+
+    conn = get_connection()
+    try:
+        placeholder_number = f"TMP-{uuid.uuid4().hex}"
+        cursor = conn.execute(
+            "INSERT INTO invoices (invoice_number, customer_id, amount, invoice_date) VALUES (?,?,?,?)",
+            (placeholder_number, customer_id, amount, invoice_date)
+        )
+        invoice_id = cursor.lastrowid
+        invoice_number = f"INV-{invoice_id:06d}"
+
+        customer_row = conn.execute(
+            "SELECT full_name FROM customers WHERE customer_id = ?", (customer_id,)
+        ).fetchone()
+        customer_name = customer_row[0] if customer_row else "לקוח לא ידוע"
+
+        pdf_path = None
+        try:
+            pdf_path = generate_invoice_pdf(invoice_number, customer_name, amount, invoice_date)
+        except Exception as e:
+            print(f"אזהרה: יצירת קובץ ה-PDF נכשלה ({e}) - החשבונית נשמרה ללא PDF")
+
+        conn.execute(
+            "UPDATE invoices SET invoice_number = ?, pdf_path = ? WHERE invoice_id = ?",
+            (invoice_number, pdf_path, invoice_id)
+        )
+        conn.commit()
+        return invoice_id
+    except sqlite3.IntegrityError:
+        print("שגיאה: מספר לקוח לא קיים במערכת")
         return None
     finally:
         conn.close()
@@ -140,6 +245,15 @@ def get_all_invoices_including_deleted():
     rows = cursor.fetchall()
     conn.close()
     return rows
+
+
+def get_invoice_by_id(invoice_id):
+    """מחזירה חשבונית בודדת לפי מזהה (כולל אם היא מחוקה), או None אם לא נמצאה."""
+    conn = get_connection()
+    cursor = conn.execute("SELECT * FROM invoices WHERE invoice_id = ?", (invoice_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return row
 
 
 def delete_invoice(invoice_id):

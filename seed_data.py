@@ -1,6 +1,15 @@
 """נתוני דוגמה - ממלאת את מסד הנתונים בישויות לדוגמה כאשר הוא ריק, כדי שהממשק לא יוצג ריק."""
 
-from customers_manager import add_customer, add_invoice, delete_customer, delete_invoice, get_all_customers_including_deleted
+from datetime import date, timedelta
+
+from customers_manager import (
+    add_customer,
+    add_invoice,
+    delete_customer,
+    delete_invoice,
+    deactivate_customer,
+    get_all_customers_including_deleted,
+)
 from appointments_manager import add_appointment, update_appointment_status, delete_appointment
 from leads_manager import add_lead, update_lead_status, delete_lead
 
@@ -47,18 +56,18 @@ APPOINTMENTS = [
     (2, "פגישת מעקב", "2026-08-05", "10:00", "בוטל"),
 ]
 
-# (invoice_number, customer_index, amount, date)
+# (customer_index, amount) - התאריך נקבע דינמית (היום ואילך), כי לא ניתן להזין חשבונית בתאריך שכבר עבר
 INVOICES = [
-    ("INV-1001", 0, 850.0, "2026-07-15"),
-    ("INV-1002", 1, 1200.0, "2026-07-18"),
-    ("INV-1003", 2, 640.0, "2026-07-20"),
-    ("INV-1004", 3, 950.0, "2026-07-22"),
-    ("INV-1005", 4, 1500.0, "2026-07-25"),
-    ("INV-1006", 5, 420.0, "2026-07-28"),
-    ("INV-1007", 6, 780.0, "2026-08-01"),
-    ("INV-1008", 8, 1100.0, "2026-08-03"),
-    ("INV-1009", 9, 690.0, "2026-08-05"),
-    ("INV-1010", 0, 300.0, "2026-08-07"),
+    (0, 850.0),
+    (1, 1200.0),
+    (2, 640.0),
+    (3, 950.0),
+    (4, 1500.0),
+    (5, 420.0),
+    (6, 780.0),
+    (8, 1100.0),
+    (9, 690.0),
+    (0, 300.0),
 ]
 
 # (full_name, phone, source, status, notes)
@@ -84,14 +93,16 @@ def seed_if_empty():
 
     customer_ids = [add_customer(*c) for c in CUSTOMERS]
 
-    for customer_index, service_type, date, time, status in APPOINTMENTS:
-        appointment_id = add_appointment(customer_ids[customer_index], service_type, date, time)
+    for customer_index, service_type, appt_date, appt_time, status in APPOINTMENTS:
+        appointment_id = add_appointment(customer_ids[customer_index], service_type, appt_date, appt_time)
         if status != "ממתין" and appointment_id is not None:
             update_appointment_status(appointment_id, status)
 
-    invoice_ids_by_number = {}
-    for invoice_number, customer_index, amount, date in INVOICES:
-        invoice_ids_by_number[invoice_number] = add_invoice(invoice_number, customer_ids[customer_index], amount, date)
+    today = date.today()
+    invoice_ids = []
+    for i, (customer_index, amount) in enumerate(INVOICES):
+        invoice_date = (today + timedelta(days=i)).isoformat()
+        invoice_ids.append(add_invoice(customer_ids[customer_index], amount, invoice_date))
 
     lead_ids = []
     for full_name, phone, source, status, notes in LEADS:
@@ -102,7 +113,10 @@ def seed_if_empty():
 
     # מדגימות את פונקציונליות המחיקה/שחזור עם כמה רשומות מחוקות מראש
     delete_customer(customer_ids[11])
-    delete_invoice(invoice_ids_by_number["INV-1006"])
+    delete_invoice(invoice_ids[5])
     delete_lead(lead_ids[3])
+
+    # מדגימה סטטוס "לא פעיל" (שונה ממחיקה) עבור לקוח
+    deactivate_customer(customer_ids[10])
 
     return True

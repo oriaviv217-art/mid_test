@@ -4,16 +4,17 @@
 --==========================================================================================================
 
 CREATE TABLE IF NOT EXISTS customers(
-    customer_id   TEXT PRIMARY KEY AUTOINCREMENT,
+    customer_id   INTEGER PRIMARY KEY AUTOINCREMENT,
     full_name     TEXT NOT NULL,
     phone         TEXT,
     email         TEXT,
     address       TEXT,
-    is_deleted    BOOLEAN NOT NULL DEFAULT 0
+    is_deleted    INTEGER NOT NULL DEFAULT 0,
+    is_active     INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS appointments (
-    appointment_id     TEXT PRIMARY KEY AUTOINCREMENT,
+    appointment_id     INTEGER PRIMARY KEY AUTOINCREMENT,
     customer_id         INTEGER NOT NULL,
     service_type        TEXT NOT NULL,
     appointment_date    TEXT NOT NULL,
@@ -29,6 +30,7 @@ CREATE TABLE IF NOT EXISTS invoices (
     customer_id INTEGER NOT NULL,
     amount  REAL NOT NULL,
     is_deleted  INTEGER NOT NULL DEFAULT 0,
+    pdf_path    TEXT,
     FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
 
 );

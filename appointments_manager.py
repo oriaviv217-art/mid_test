@@ -1,7 +1,21 @@
 import sqlite3
 from db import get_connection
+from validators import validate_required_text, validate_date, validate_time
 
 def add_appointment(customer_id, service_type, appointment_date, appointment_time):
+    is_valid, error = validate_required_text(service_type, "סוג שירות", max_length=100)
+    if not is_valid:
+        print(f"שגיאה: {error}")
+        return None
+    is_valid, error = validate_date(appointment_date)
+    if not is_valid:
+        print(f"שגיאה: {error}")
+        return None
+    is_valid, error = validate_time(appointment_time)
+    if not is_valid:
+        print(f"שגיאה: {error}")
+        return None
+
     conn = get_connection()
     try:
         cursor = conn.execute(

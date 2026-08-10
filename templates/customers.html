@@ -19,7 +19,7 @@
     <h5 class="card-title"><i class="bi bi-person-plus"></i> הוספת לקוח חדש</h5>
     <form method="post" action="{{ url_for('customers_add') }}" class="row g-2">
       <div class="col-md-3"><input required name="full_name" class="form-control" placeholder="שם מלא"></div>
-      <div class="col-md-3"><input name="phone" class="form-control" placeholder="טלפון"></div>
+      <div class="col-md-3"><input name="phone" class="form-control" placeholder="טלפון (לדוגמה: 050-1234567)"></div>
       <div class="col-md-3"><input name="email" type="email" class="form-control" placeholder="אימייל"></div>
       <div class="col-md-2"><input name="address" class="form-control" placeholder="כתובת"></div>
       <div class="col-md-1"><button class="btn btn-primary w-100" type="submit"><i class="bi bi-plus-lg"></i></button></div>
@@ -38,7 +38,7 @@
 
 <div class="table-responsive bg-white rounded shadow-sm">
 <table class="table table-striped mb-0" id="customers-table">
-  <thead><tr><th>#</th><th>שם</th><th>טלפון</th><th>אימייל</th><th>כתובת</th><th>סטטוס</th><th>פעולות</th></tr></thead>
+  <thead><tr><th>#</th><th>שם</th><th>טלפון</th><th>אימייל</th><th>כתובת</th><th>סטטוס לקוח</th><th>מצב במערכת</th><th>פעולות</th></tr></thead>
   <tbody>
   {% for c in customers %}
     <tr>
@@ -48,12 +48,25 @@
       <td>{{ c[3] or '' }}</td>
       <td>{{ c[4] or '' }}</td>
       <td>
+        {% if c[6] %}<span class="badge bg-success">פעיל</span>
+        {% else %}<span class="badge bg-warning text-dark">מושהה</span>{% endif %}
+      </td>
+      <td>
         {% if c[5] %}<span class="badge bg-secondary">מחוק</span>
-        {% else %}<span class="badge bg-success">פעיל</span>{% endif %}
+        {% else %}<span class="badge bg-light text-dark border">קיים</span>{% endif %}
       </td>
       <td>
         {% if not c[5] %}
         <a href="{{ url_for('customer_detail', customer_id=c[0]) }}" class="btn btn-sm btn-outline-primary" title="צפייה"><i class="bi bi-eye"></i></a>
+        {% if c[6] %}
+        <form method="post" action="{{ url_for('customers_deactivate', customer_id=c[0]) }}" class="d-inline">
+          <button class="btn btn-sm btn-outline-warning" title="השהיית לקוח"><i class="bi bi-pause-circle"></i></button>
+        </form>
+        {% else %}
+        <form method="post" action="{{ url_for('customers_activate', customer_id=c[0]) }}" class="d-inline">
+          <button class="btn btn-sm btn-outline-success" title="הפעלת לקוח"><i class="bi bi-play-circle"></i></button>
+        </form>
+        {% endif %}
         <form method="post" action="{{ url_for('customers_delete', customer_id=c[0]) }}" class="d-inline"
               onsubmit="return confirm('למחוק את הלקוח? פעולה זו תמחק גם את התורים והחשבוניות שלו.');">
           <button class="btn btn-sm btn-outline-danger" title="מחיקה"><i class="bi bi-trash"></i></button>
@@ -66,7 +79,7 @@
       </td>
     </tr>
   {% else %}
-    <tr><td colspan="7" class="text-center text-muted py-4"><i class="bi bi-inbox fs-3 d-block mb-2"></i>אין רשומות להצגה</td></tr>
+    <tr><td colspan="8" class="text-center text-muted py-4"><i class="bi bi-inbox fs-3 d-block mb-2"></i>אין רשומות להצגה</td></tr>
   {% endfor %}
   </tbody>
 </table>

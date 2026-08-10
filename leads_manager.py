@@ -1,10 +1,20 @@
 import sqlite3
 from db import get_connection
 from customers_manager import add_customer
+from validators import validate_name, validate_phone
 
 
 def add_lead(full_name, phone, source, notes):
-    """מוסיפה ליד חדש למערכת ומחזירה את מספר הליד שנוצר."""
+    """מוסיפה ליד חדש למערכת ומחזירה את מספר הליד שנוצר, או None אם הקלט אינו תקין."""
+    is_valid, error = validate_name(full_name)
+    if not is_valid:
+        print(f"שגיאה: {error}")
+        return None
+    is_valid, error = validate_phone(phone)
+    if not is_valid:
+        print(f"שגיאה: {error}")
+        return None
+
     conn = get_connection()
     try:
         cursor = conn.execute(
@@ -117,5 +127,9 @@ def convert_lead_to_customer(lead_id):
     phone = lead[1]
 
     new_customer_id = add_customer(full_name, phone, None, None)
+    if new_customer_id is None:
+        print("שגיאה: לא ניתן היה ליצור לקוח מנתוני הליד (ראו הודעת השגיאה לעיל)")
+        return None
+
     update_lead_status(lead_id, "הפך ללקוח")
     return new_customer_id

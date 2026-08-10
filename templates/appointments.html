@@ -26,7 +26,15 @@
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-3"><input required name="service_type" class="form-control" placeholder="סוג שירות"></div>
+      <div class="col-md-3">
+        <select id="service_type_select" class="form-select" name="service_type" onchange="toggleServiceTypeOther(this)">
+          {% for s in service_types %}
+            <option value="{{ s }}">{{ s }}</option>
+          {% endfor %}
+          <option value="__other__">אחר - הזנה ידנית</option>
+        </select>
+        <input type="text" id="service_type_other" class="form-control mt-1" placeholder="הזן סוג שירות" style="display:none;">
+      </div>
       <div class="col-md-2"><input required name="appointment_date" type="date" class="form-control"></div>
       <div class="col-md-2"><input required name="appointment_time" type="time" class="form-control"></div>
       <div class="col-md-2"><button class="btn btn-primary w-100" type="submit"><i class="bi bi-plus-lg"></i> הוסף</button></div>
@@ -90,4 +98,23 @@
   </tbody>
 </table>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function toggleServiceTypeOther(selectEl) {
+    const otherInput = document.getElementById('service_type_other');
+    if (selectEl.value === '__other__') {
+      otherInput.style.display = 'block';
+      otherInput.required = true;
+      otherInput.name = 'service_type';
+      selectEl.removeAttribute('name');
+    } else {
+      otherInput.style.display = 'none';
+      otherInput.required = false;
+      otherInput.removeAttribute('name');
+      selectEl.name = 'service_type';
+    }
+  }
+</script>
 {% endblock %}

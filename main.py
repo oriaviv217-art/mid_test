@@ -16,6 +16,8 @@ from customers_manager import (
     get_all_customers_including_deleted,
     delete_customer,
     undelete_customer,
+    deactivate_customer,
+    activate_customer,
     add_invoice,
     get_all_invoices,
     get_all_deleted_invoices,
@@ -37,7 +39,29 @@ from leads_manager import (
 )
 
 
+SERVICE_TYPES = [
+    "ייעוץ פנסיוני",
+    "תכנון פיננסי",
+    "ייעוץ השקעות",
+    "בדיקת תיק ביטוח",
+    "פגישת מעקב",
+    "ייעוץ משכנתא",
+]
+
+
 # ==================== עזרים כלליים ====================
+
+def choose_service_type():
+    """מציגה רשימת סוגי שירות נפוצים לבחירה, עם אפשרות להזנה ידנית."""
+    print("בחרו סוג שירות:")
+    for i, service in enumerate(SERVICE_TYPES, start=1):
+        print(f"  {i}. {service}")
+    print(f"  {len(SERVICE_TYPES) + 1}. אחר (הזנה ידנית)")
+    choice = input("בחירה: ").strip()
+    if choice.isdigit() and 1 <= int(choice) <= len(SERVICE_TYPES):
+        return SERVICE_TYPES[int(choice) - 1]
+    return input("הזן סוג שירות: ")
+
 
 def print_rows(rows, empty_message):
     """מדפיסה רשימת רשומות, או הודעה אם הרשימה ריקה."""
@@ -66,7 +90,7 @@ def appointments_menu():
 
         if choice == "1":
             customer_id = input("הזן מספר לקוח: ")
-            service_type = input("הזן סוג שירות: ")
+            service_type = choose_service_type()
             appointment_date = input("הזן תאריך (YYYY-MM-DD): ")
             appointment_time = input("הזן שעה (HH:MM): ")
             new_id = add_appointment(customer_id, service_type, appointment_date, appointment_time)
@@ -123,6 +147,8 @@ def customers_menu():
         print("12. הצגת כל החשבוניות הפעילות")
         print("13. הצגת כל החשבוניות המחוקות")
         print("14. הצגת כל החשבוניות (פעילות ומחוקות)")
+        print("15. השהיית לקוח (לא פעיל)")
+        print("16. הפעלת לקוח מושהה")
         print("0. חזרה לתפריט הראשי")
         choice = input("בחר אפשרות: ")
 
@@ -132,7 +158,8 @@ def customers_menu():
             email = input("הזן אימייל: ")
             address = input("הזן כתובת: ")
             new_id = add_customer(full_name, phone, email, address)
-            print(f"הלקוח נוסף בהצלחה! מספר לקוח: {new_id}")
+            if new_id is not None:
+                print(f"הלקוח נוסף בהצלחה! מספר לקוח: {new_id}")
 
         elif choice == "2":
             print("\n--- רשימת הלקוחות הפעילים ---")
@@ -155,13 +182,12 @@ def customers_menu():
             print_rows(get_all_customers_including_deleted(), "אין לקוחות במערכת")
 
         elif choice == "7":
-            invoice_number = input("הזן מספר חשבונית: ")
             customer_id = input("הזן מספר לקוח: ")
             amount = input("הזן סכום: ")
-            invoice_date = input("הזן תאריך (YYYY-MM-DD): ")
-            new_id = add_invoice(invoice_number, customer_id, amount, invoice_date)
+            invoice_date = input("הזן תאריך (YYYY-MM-DD, לא יכול להיות בעבר): ")
+            new_id = add_invoice(customer_id, amount, invoice_date)
             if new_id is not None:
-                print(f"החשבונית נוצרה בהצלחה! מזהה: {new_id}")
+                print(f"החשבונית נוצרה בהצלחה! מזהה: {new_id} (מספר החשבונית וקובץ ה-PDF נוצרו אוטומטית)")
 
         elif choice == "8":
             customer_id = input("הזן מספר לקוח: ")
@@ -193,6 +219,14 @@ def customers_menu():
             print("\n--- רשימת כל החשבוניות (פעילות ומחוקות) ---")
             print_rows(get_all_invoices_including_deleted(), "אין חשבוניות במערכת")
 
+        elif choice == "15":
+            customer_id = input("הזן מספר לקוח להשהיה: ")
+            deactivate_customer(customer_id)
+
+        elif choice == "16":
+            customer_id = input("הזן מספר לקוח להפעלה: ")
+            activate_customer(customer_id)
+
         elif choice == "0":
             break
 
@@ -221,7 +255,8 @@ def leads_menu():
             source = input("הזן מקור פנייה: ")
             notes = input("הזן הערות: ")
             new_id = add_lead(full_name, phone, source, notes)
-            print(f"הליד נוסף בהצלחה! מספר ליד: {new_id}")
+            if new_id is not None:
+                print(f"הליד נוסף בהצלחה! מספר ליד: {new_id}")
 
         elif choice == "2":
             print("\n--- רשימת הלידים הפעילים ---")

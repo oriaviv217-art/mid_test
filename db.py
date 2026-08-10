@@ -8,9 +8,9 @@ def get_connection():
 def _add_missing_columns(conn):
     """מוסיפה עמודות חדשות (כמו is_deleted) לטבלאות שכבר קיימות מגרסה קודמת של הסכמה."""
     required_columns = {
-        "customers": [("is_deleted", "INTEGER NOT NULL DEFAULT 0")],
+        "customers": [("is_deleted", "INTEGER NOT NULL DEFAULT 0"), ("is_active", "INTEGER NOT NULL DEFAULT 1")],
         "appointments": [("is_deleted", "INTEGER NOT NULL DEFAULT 0")],
-        "invoices": [("is_deleted", "INTEGER NOT NULL DEFAULT 0")],
+        "invoices": [("is_deleted", "INTEGER NOT NULL DEFAULT 0"), ("pdf_path", "TEXT")],
         "leads": [("is_deleted", "INTEGER NOT NULL DEFAULT 0")],
     }
     for table, columns in required_columns.items():
