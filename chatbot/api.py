@@ -38,6 +38,16 @@ def clean_id(value):
     """משאיר רק ספרות - כדי שמקפים ורווחים לא יפילו אימות תקין."""
     return "".join(ch for ch in str(value) if ch.isdigit())
 
+def is_verified(customer_id, national_id):
+    """מחזירה True רק אם הת"ז תואמת בדיוק ללקוח הזה."""
+    if not customer_id or not clean_id(national_id):
+        return False
+    for customer in get_all_customers():
+        if customer[C_ID] == customer_id:
+            db_id = clean_id(customer[C_NATIONAL_ID])
+            return bool(db_id) and db_id == clean_id(national_id)
+    return False 
+
 
 @app.route("/api/customers/verify", methods=["POST"])
 def verify_customer():
@@ -45,15 +55,33 @@ def verify_customer():
     data = request.get_json(silent=True) or {}
     customer_id = data.get("customer_id")
     national_id = str(data.get("national_id", "")).strip()
-    if not customer_id or not national_id:
-        return jsonify({"verified": False})
-    for customer in get_all_customers():
-        if customer[C_ID] == customer_id:
-            return jsonify({"verified": clean_id(customer[C_NATIONAL_ID]) == clean_id(national_id)})
+    return jsonify({"verified": is_verified(customer_id, national_id)})
 
-    return jsonify({"verified": False})    
+# אינדקסים של השדות בשורת תור
+A_ID, A_CUSTOMER_ID, A_SERVICE, A_DATE, A_TIME, A_STATUS = 0, 1, 2, 3, 4, 5
 
-    
+
+@app.route("/api/customers/appointments", methods=["POST"])
+def customer_appointments():
+    """מחזיר את התורים של לקוח - רק אחרי אימות ת"ז מוצלח."""
+    data = request.get_json(silent=True) or {}
+    customer_id = data.get("customer_id")
+    national_id = str(data.get("national_id", "")).strip()
+
+    if not is_verified(customer_id, national_id):
+        return jsonify({"verified": False, "appointments": []})
+
+    results = []
+    for appt in get_customer_appointments(customer_id):
+        results.append({
+            "appointment_id": appt[A_ID],
+            "service_type": appt[A_SERVICE],
+            "appointment_date": appt[A_DATE],
+            "appointment_time": appt[A_TIME],
+            "status": appt[A_STATUS],
+        })
+    return jsonify({"verified": True, "appointments": results})
+
 
 if __name__ == "__main__":
     app.run(port=5001, debug=True)
