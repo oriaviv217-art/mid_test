@@ -6,6 +6,7 @@ import re
 from datetime import date
 
 import api_client
+import nlu
 
 # חמשת המצבים
 START = "START"           # אין מועמד
@@ -153,21 +154,30 @@ def _search_by_words(raw_name):
 
 
 def _handle_start(text, state):
-    """מחפש לקוח לפי השם שנמסר, ושומר תאריך אם הוזכר."""
+    """מחפש לקוח לפי השם. מנסה NLU, ואם נכשל - נופל על חילוץ בקוד."""
     raw = text.strip()
     if not raw:
         return "לא הבנתי. מה שמך?", state
 
-    claimed = _extract_date(raw)
-    if claimed:
-        state["claimed_date"] = claimed
+    name = None
+    parsed = nlu.extract(raw)
+    if parsed:
+        name = parsed.get("name")
+        if parsed.get("claimed_date"):
+            state["claimed_date"] = parsed["claimed_date"]
 
-    name = _strip_date_and_digits(raw)
+    # רשת ביטחון: אם ה-NLU לא זמין או לא זיהה שם
+    if not name:
+        claimed = _extract_date(raw)
+        if claimed:
+            state["claimed_date"] = claimed
+        name = _strip_date_and_digits(raw)
+
     if not name:
         return "לא זיהיתי שם. מה שמך?", state
 
     results = _search_by_words(name)
-    
+
     if len(results) == 0:
         return "לא מצאתי אף לקוח בשם הזה. אפשר לנסות שם מלא יותר?", state
 
@@ -180,7 +190,6 @@ def _handle_start(text, state):
     state["candidates"] = results
     state["state"] = CLARIFY
     return f"מצאתי {len(results)} לקוחות עם השם הזה. מה השם המלא שלך?", state
-
 
 def _handle_clarify(text, state):
     """מסנן את רשימת המועמדים לפי ההבהרה שהמשתמש נתן."""
