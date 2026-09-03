@@ -99,5 +99,6 @@ def extract(text):
             contents=PROMPT + text,
         )
         return safe_parse(response.text)
-    except Exception:
+    except Exception as e:
+        print("NLU FAILED:", type(e).__name__, "-", e)
         return None
