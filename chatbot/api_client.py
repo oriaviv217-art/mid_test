@@ -13,7 +13,9 @@ TIMEOUT = 5
 LOCAL_MODE = os.environ.get("USE_LOCAL_API") == "1"
 
 if LOCAL_MODE:
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    _root = Path(__file__).resolve().parent.parent
+    sys.path.insert(0, str(_root))
+    os.chdir(_root)
     from customers_manager import get_all_customers, get_customer_appointments
 
     C_ID, C_NAME, C_NATIONAL_ID = 0, 1, 7
@@ -100,4 +102,3 @@ def get_appointments(customer_id, national_id):
         return data.get("verified", False), data.get("appointments", [])
     except Exception:
         return False, []
-        
