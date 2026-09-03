@@ -2,6 +2,8 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, session
 
+import bot
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-me")
 
@@ -15,13 +17,18 @@ def chat_page():
 
 @app.route("/send", methods=["POST"])
 def send_message():
-    """מקבל הודעה, מייצר תשובה, שומר את שתיהן."""
+    """מקבל הודעה, מעביר לבוט, ושומר את שתיהן."""
     user_text = request.form.get("message", "").strip()
     if not user_text:
         return redirect(url_for("chat_page"))
+
     messages = session.get("messages", [])
     messages.append({"role": "user", "content": user_text})
-    reply = f"קיבלתי: {user_text}"
+
+    conv = session.get("conv", bot.new_state())
+    reply, conv = bot.handle_message(user_text, conv)
+    session["conv"] = conv
+
     messages.append({"role": "bot", "content": reply})
     session["messages"] = messages
     return redirect(url_for("chat_page"))
@@ -36,4 +43,3 @@ def reset():
 
 if __name__ == "__main__":
     app.run(port=5002, debug=True)
-    
