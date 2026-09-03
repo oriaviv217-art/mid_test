@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>בוט תורים</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 700px; margin: 30px auto; }
+        .msg { padding: 10px 14px; margin: 8px 0; border-radius: 10px; }
+        .user { background: #e3f2fd; }
+        .bot  { background: #f1f1f1; }
+        form { display: flex; gap: 8px; margin-top: 20px; }
+        input[type=text] { flex: 1; padding: 10px; font-size: 16px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h2>בוט תורים</h2>
+
+    {% for msg in messages %}
+        <div class="msg {{ msg.role }}">{{ msg.content }}</div>
+    {% endfor %}
+
+    <form method="POST" action="/send">
+        <input type="text" name="message" placeholder="כתוב הודעה..." autofocus>
+        <button type="submit">שלח</button>
+    </form>
+
+    <form method="POST" action="/reset">
+        <button type="submit">התחל שיחה מחדש</button>
+    </form>
+</body>
+</html>
