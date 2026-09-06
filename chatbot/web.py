@@ -1,13 +1,26 @@
 """ממשק הצ'אט. להרצה מהשורש: python chatbot/web.py"""
 import os
 from flask import Flask, render_template, request, redirect, url_for, session
+from flask_session import Session
 
 import bot
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-me")
-app.config["SESSION_COOKIE_SAMESITE"] = "None"
-app.config["SESSION_COOKIE_SECURE"] = True
+
+# ---- Server-side session (filesystem) ----
+# עובר מ-cookie בצד הלקוח (מוגבל ל-4KB) לקבצים בצד השרת.
+# זה מתקן שתי בעיות:
+#   1. "התחל שיחה מחדש" לא עבד - כי ה-cookie חרג מ-4KB ו-session.clear() נכשל בשקט.
+#   2. הבוט החזיר תשובות ישנות - כי ה-state לא התעדכן לאחר שה-cookie גדש.
+app.config["SESSION_TYPE"] = "filesystem"
+app.config["SESSION_FILE_DIR"] = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "flask_session_data"
+)
+app.config["SESSION_PERMANENT"] = False
+app.config["SESSION_USE_SIGNER"] = True  # חותמת על session ID למניעת זיוף
+Session(app)
+
 
 @app.route("/")
 def chat_page():

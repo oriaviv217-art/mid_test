@@ -13,6 +13,10 @@ invoices_pdf/
 flask_log.txt
 testy.sql
 
+# Flask server-side session files (generated at runtime, may contain session data)
+chatbot/flask_session_data/
+
+
 # --- GitHub's standard Python.gitignore template below ---
 
 # Byte-compiled / optimized / DLL files
