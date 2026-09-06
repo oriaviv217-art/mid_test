@@ -8,6 +8,15 @@ from datetime import date
 import api_client
 import nlu
 
+SERVICE_TYPES = [
+    "ייעוץ פנסיוני",
+    "תכנון פיננסי",
+    "ייעוץ השקעות",
+    "בדיקת תיק ביטוח",
+    "פגישת מעקב",
+    "ייעוץ משכנתא",
+]
+
 # תשעת המצבים
 START = "START"                       # אין מועמד
 CLARIFY = "CLARIFY"                   # כמה התאמות, מחכים להבהרה
@@ -297,29 +306,38 @@ def _handle_verified(text, state):
 
 
 def _handle_new_service(text, state):
-    """שלב 1 ביצירת תור: סוג השירות."""
+    """שלב 1 ביצירת תור: סוג השירות. חייב להיות אחד מהסוגים הקיימים."""
     service = text.strip()
-    if not service:
-        return "לא הבנתי. איזה סוג שירות?", state
-    state["pending_service"] = service
-    state["state"] = AWAIT_NEW_DATE
-    return "מעולה. באיזה תאריך? (לדוגמה: 15.03.2027)", state
+
+    matches = [s for s in SERVICE_TYPES if service in s or s in service]
+
+    if len(matches) == 1:
+        state["pending_service"] = matches[0]
+        state["state"] = AWAIT_NEW_DATE
+        return "מעולה. באיזה תאריך? (לדוגמה: 15.03.2027)", state
+
+    options = ", ".join(SERVICE_TYPES)
+    return f"לא זיהיתי את סוג השירות. הסוגים הקיימים הם: {options}. איזה מהם תרצה?", state
 
 
 def _handle_new_date(text, state):
-    """שלב 2 ביצירת תור: התאריך. חייב להיות היום או בעתיד."""
+    """שלב 2 ביצירת תור: התאריך. חייב להיות תקין ובעתיד."""
     parsed_date = _extract_date(text)
     if not parsed_date:
         return "לא זיהיתי תאריך. אפשר בפורמט כמו 15.03.2027?", state
 
-    today = date.today().isoformat()
-    if parsed_date < today:
+    try:
+        parsed_obj = date.fromisoformat(parsed_date)
+    except ValueError:
+        return "התאריך הזה לא תקין. אפשר בפורמט כמו 15.03.2027?", state
+
+    today = date.today()
+    if parsed_obj < today:
         return "התאריך הזה כבר עבר. אפשר תאריך עתידי?", state
 
     state["pending_date"] = parsed_date
     state["state"] = AWAIT_NEW_TIME
     return "ובאיזו שעה? (לדוגמה: 14:00)", state
-
 def _handle_new_time(text, state):
     """שלב 3 ביצירת תור: השעה, בדיקת תפוסה, ואז ביצוע בפועל."""
     parsed_time = _extract_time(text)
