@@ -161,3 +161,25 @@ def cancel_appointment(customer_id, national_id, appointment_id):
         return data.get("verified", False), data.get("cancelled", False)
     except Exception:
         return False, False
+
+def check_availability(appointment_date, appointment_time):
+    """בודק אם שעה מסוימת פנויה, על פני כל הלקוחות. מחזיר True/False."""
+    if LOCAL_MODE:
+        try:
+            from appointments_manager import get_all_appointments
+            A_DATE_LOCAL, A_TIME_LOCAL = 3, 4
+            for appt in get_all_appointments():
+                if appt[A_DATE_LOCAL] == appointment_date and appt[A_TIME_LOCAL] == appointment_time:
+                    return False
+            return True
+        except Exception:
+            return False
+    try:
+        response = requests.get(
+            API_BASE + "/api/appointments/availability",
+            params={"date": appointment_date, "time": appointment_time},
+            timeout=TIMEOUT,
+        )
+        return response.json().get("available", False)
+    except Exception:
+        return False

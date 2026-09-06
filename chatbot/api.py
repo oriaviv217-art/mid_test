@@ -13,8 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from flask import Flask, request, jsonify
 from customers_manager import get_all_customers, get_customer_appointments
-from appointments_manager import add_appointment, delete_appointment
-
+from appointments_manager import add_appointment, delete_appointment, get_all_appointments
 app = Flask(__name__)
 
 # אינדקסים של השדות בשורת לקוח
@@ -128,6 +127,20 @@ def cancel_appointment():
     return jsonify({"verified": True, "cancelled": success})
 
 
+@app.route("/api/appointments/availability")
+def check_availability():
+    """בודק אם תאריך+שעה תפוסים אצל לקוח כלשהו. לא דורש אימות - לא חושף פרטים אישיים."""
+    appointment_date = request.args.get("date", "").strip()
+    appointment_time = request.args.get("time", "").strip()
+
+    if not (appointment_date and appointment_time):
+        return jsonify({"available": False})
+
+    for appt in get_all_appointments():
+        if appt[A_DATE] == appointment_date and appt[A_TIME] == appointment_time:
+            return jsonify({"available": False})
+
+    return jsonify({"available": True})
 if __name__ == "__main__":
     app.run(port=5001, debug=True)
     

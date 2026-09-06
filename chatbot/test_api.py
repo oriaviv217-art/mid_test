@@ -38,6 +38,8 @@ print(requests.post(f"{BASE}/api/customers/appointments/create",
 print("\n-- cancel someone else's appointment (must fail) --")
 print(requests.post(f"{BASE}/api/customers/appointments/cancel",
     json={"customer_id": 23, "national_id": "987654321", "appointment_id": 17}).json())
+
+
 print("\n-- cancel own appointment (must succeed) --")
 print(requests.post(f"{BASE}/api/customers/appointments/cancel",
     json={"customer_id": 22, "national_id": "123456789", "appointment_id": 17}).json())

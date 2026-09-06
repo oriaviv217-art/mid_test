@@ -307,20 +307,27 @@ def _handle_new_service(text, state):
 
 
 def _handle_new_date(text, state):
-    """שלב 2 ביצירת תור: התאריך."""
+    """שלב 2 ביצירת תור: התאריך. חייב להיות היום או בעתיד."""
     parsed_date = _extract_date(text)
     if not parsed_date:
         return "לא זיהיתי תאריך. אפשר בפורמט כמו 15.03.2027?", state
+
+    today = date.today().isoformat()
+    if parsed_date < today:
+        return "התאריך הזה כבר עבר. אפשר תאריך עתידי?", state
+
     state["pending_date"] = parsed_date
     state["state"] = AWAIT_NEW_TIME
     return "ובאיזו שעה? (לדוגמה: 14:00)", state
 
-
 def _handle_new_time(text, state):
-    """שלב 3 ביצירת תור: השעה, ואז ביצוע בפועל."""
+    """שלב 3 ביצירת תור: השעה, בדיקת תפוסה, ואז ביצוע בפועל."""
     parsed_time = _extract_time(text)
     if not parsed_time:
         return "לא זיהיתי שעה. אפשר בפורמט כמו 14:00?", state
+
+    if not api_client.check_availability(state["pending_date"], parsed_time):
+        return "השעה הזו כבר תפוסה. אפשר לבחור שעה אחרת?", state
 
     verified, created, appointment_id = api_client.create_appointment(
         state["candidate_id"],
