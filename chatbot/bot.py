@@ -189,7 +189,7 @@ def _handle_start(text, state):
 
     state["candidates"] = results
     state["state"] = CLARIFY
-    return f"מצאתי {len(results)} לקוחות עם השם הזה. מה השם המלא שלך?", state
+    return "יש כמה לקוחות עם השם הזה. מה השם המלא שלך?", state
 
 def _handle_clarify(text, state):
     """מסנן את רשימת המועמדים לפי ההבהרה שהמשתמש נתן."""
@@ -215,8 +215,7 @@ def _handle_clarify(text, state):
         state["state"] = AWAIT_ID
         return _ask_for_id(state), state
 
-    return f"עדיין מצאתי {len(matches)} התאמות. אפשר את השם המלא במדויק?", state
-
+    return "עדיין יש כמה התאמות. אפשר את השם המלא במדויק?", state
 
 def _handle_await_id(text, state):
     """מאמת תעודת זהות. ההשוואה עצמה נעשית ב-API, בקוד."""
