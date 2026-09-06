@@ -86,6 +86,74 @@
     if (counter) counter.textContent = visibleCount;
   }
 </script>
+
+<!-- ===== צ'אטבוט - עיגול צף ===== -->
+<button id="chatbot-fab" type="button"
+        style="position:fixed; bottom:24px; left:24px; z-index:1050;
+               width:56px; height:56px; border-radius:50%;
+               background:#00573F; border:none; color:#fff;
+               box-shadow:0 4px 12px rgba(0,0,0,.25); cursor:pointer;
+               font-size:24px; display:flex; align-items:center; justify-content:center;">
+  <i class="bi bi-chat-dots"></i>
+</button>
+
+<div id="chatbot-panel"
+     style="display:none; position:fixed; bottom:92px; left:24px; z-index:1050;
+            width:380px; height:560px; max-width:92vw; max-height:80vh;
+            background:#fff; border-radius:16px; overflow:hidden;
+            box-shadow:0 8px 30px rgba(0,0,0,.3); flex-direction:column;">
+  <div style="display:flex; justify-content:space-between; align-items:center;
+              padding:10px 14px; background:#00573F; color:#fff;">
+    <span style="font-size:14px; font-weight:600;">עוזר תורים</span>
+    <div>
+      <button id="chatbot-expand" type="button" title="הגדל למסך מלא"
+              style="background:none; border:none; color:#fff; font-size:16px; margin-left:8px; cursor:pointer;">
+        <i class="bi bi-arrows-fullscreen"></i>
+      </button>
+      <button id="chatbot-close" type="button" title="סגור"
+              style="background:none; border:none; color:#fff; font-size:18px; cursor:pointer;">
+        &times;
+      </button>
+    </div>
+  </div>
+  <iframe id="chatbot-iframe" src="https://oriai.pythonanywhere.com"
+          style="flex:1; border:none; width:100%;"></iframe>
+</div>
+
+<script>
+(function () {
+  var fab = document.getElementById('chatbot-fab');
+  var panel = document.getElementById('chatbot-panel');
+  var closeBtn = document.getElementById('chatbot-close');
+  var expandBtn = document.getElementById('chatbot-expand');
+  var expanded = false;
+
+  fab.addEventListener('click', function () {
+    panel.style.display = (panel.style.display === 'none' || !panel.style.display) ? 'flex' : 'none';
+  });
+
+  closeBtn.addEventListener('click', function () {
+    panel.style.display = 'none';
+  });
+
+  expandBtn.addEventListener('click', function () {
+    expanded = !expanded;
+    if (expanded) {
+      panel.style.width = '95vw';
+      panel.style.height = '92vh';
+      panel.style.bottom = '4vh';
+      panel.style.left = '2.5vw';
+    } else {
+      panel.style.width = '380px';
+      panel.style.height = '560px';
+      panel.style.bottom = '92px';
+      panel.style.left = '24px';
+    }
+  });
+})();
+</script>
+<!-- ===== סוף צ'אטבוט ===== -->
+
 {% block scripts %}{% endblock %}
 </body>
 </html>
