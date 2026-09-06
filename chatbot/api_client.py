@@ -17,6 +17,7 @@ if LOCAL_MODE:
     sys.path.insert(0, str(_root))
     os.chdir(_root)
     from customers_manager import get_all_customers, get_customer_appointments
+    from appointments_manager import add_appointment, delete_appointment
 
     C_ID, C_NAME, C_NATIONAL_ID = 0, 1, 7
     A_ID, A_SERVICE, A_DATE, A_TIME, A_STATUS = 0, 2, 3, 4, 5
@@ -102,3 +103,61 @@ def get_appointments(customer_id, national_id):
         return data.get("verified", False), data.get("appointments", [])
     except Exception:
         return False, []
+
+
+def create_appointment(customer_id, national_id, service_type, appointment_date, appointment_time):
+    """יוצר תור חדש. מחזיר (verified, created, appointment_id)."""
+    if LOCAL_MODE:
+        try:
+            if not _is_verified(customer_id, national_id):
+                return False, False, None
+            if not (service_type and appointment_date and appointment_time):
+                return True, False, None
+            new_id = add_appointment(customer_id, service_type, appointment_date, appointment_time)
+            return True, new_id is not None, new_id
+        except Exception:
+            return False, False, None
+    try:
+        response = requests.post(
+            API_BASE + "/api/customers/appointments/create",
+            json={
+                "customer_id": customer_id,
+                "national_id": national_id,
+                "service_type": service_type,
+                "appointment_date": appointment_date,
+                "appointment_time": appointment_time,
+            },
+            timeout=TIMEOUT,
+        )
+        data = response.json()
+        return data.get("verified", False), data.get("created", False), data.get("appointment_id")
+    except Exception:
+        return False, False, None
+
+
+def cancel_appointment(customer_id, national_id, appointment_id):
+    """מבטל תור קיים. מחזיר (verified, cancelled)."""
+    if LOCAL_MODE:
+        try:
+            if not _is_verified(customer_id, national_id):
+                return False, False
+            owned_ids = [a[A_ID] for a in get_customer_appointments(customer_id)]
+            if appointment_id not in owned_ids:
+                return True, False
+            return True, delete_appointment(appointment_id)
+        except Exception:
+            return False, False
+    try:
+        response = requests.post(
+            API_BASE + "/api/customers/appointments/cancel",
+            json={
+                "customer_id": customer_id,
+                "national_id": national_id,
+                "appointment_id": appointment_id,
+            },
+            timeout=TIMEOUT,
+        )
+        data = response.json()
+        return data.get("verified", False), data.get("cancelled", False)
+    except Exception:
+        return False, False

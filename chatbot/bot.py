@@ -8,12 +8,16 @@ from datetime import date
 import api_client
 import nlu
 
-# חמשת המצבים
-START = "START"           # אין מועמד
-CLARIFY = "CLARIFY"       # כמה התאמות, מחכים להבהרה
-AWAIT_ID = "AWAIT_ID"     # מועמד אחד, מחכים לתעודת זהות
-VERIFIED = "VERIFIED"     # אומת
-BLOCKED = "BLOCKED"       # נגמרו הניסיונות
+# תשעת המצבים
+START = "START"                       # אין מועמד
+CLARIFY = "CLARIFY"                   # כמה התאמות, מחכים להבהרה
+AWAIT_ID = "AWAIT_ID"                 # מועמד אחד, מחכים לתעודת זהות
+VERIFIED = "VERIFIED"                 # אומת - ממתין לבקשה הבאה
+BLOCKED = "BLOCKED"                   # נגמרו הניסיונות
+AWAIT_NEW_SERVICE = "AWAIT_NEW_SERVICE"   # יצירת תור: מחכים לסוג שירות
+AWAIT_NEW_DATE = "AWAIT_NEW_DATE"         # יצירת תור: מחכים לתאריך
+AWAIT_NEW_TIME = "AWAIT_NEW_TIME"         # יצירת תור: מחכים לשעה
+AWAIT_CANCEL_CHOICE = "AWAIT_CANCEL_CHOICE"  # ביטול: מחכים לבחירת התור
 
 MAX_ATTEMPTS = 3
 
@@ -27,6 +31,9 @@ def new_state():
         "candidate_name": None,
         "claimed_date": None,
         "attempts_left": MAX_ATTEMPTS,
+        "appointments": [],
+        "pending_service": None,
+        "pending_date": None,
     }
 
 
@@ -42,6 +49,14 @@ def handle_message(user_text, state):
         return _handle_await_id(user_text, state)
     if current == VERIFIED:
         return _handle_verified(user_text, state)
+    if current == AWAIT_NEW_SERVICE:
+        return _handle_new_service(user_text, state)
+    if current == AWAIT_NEW_DATE:
+        return _handle_new_date(user_text, state)
+    if current == AWAIT_NEW_TIME:
+        return _handle_new_time(user_text, state)
+    if current == AWAIT_CANCEL_CHOICE:
+        return _handle_cancel_choice(user_text, state)
     if current == BLOCKED:
         return "לא אוכל להמשיך בשיחה הזו. אנא פנה למשרד בטלפון.", state
 
@@ -56,10 +71,7 @@ def _digits_only(text):
 
 
 def _extract_date(text):
-    """
-    מחלץ תאריך מטקסט חופשי ומחזיר אותו כ-YYYY-MM-DD, או None.
-    בהמשך שכבת ה-NLU תחליף את זה - כרגע זו רשת ביטחון בקוד.
-    """
+    """מחלץ תאריך מטקסט חופשי ומחזיר אותו כ-YYYY-MM-DD, או None."""
     m = re.search(r"(\d{4})-(\d{2})-(\d{2})", text)
     if m:
         return f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
@@ -69,6 +81,16 @@ def _extract_date(text):
         day, month, year = m.group(1), m.group(2), m.group(3)
         return f"{year}-{int(month):02d}-{int(day):02d}"
 
+    return None
+
+
+def _extract_time(text):
+    """מחלץ שעה מטקסט חופשי בפורמט HH:MM, או None."""
+    m = re.search(r"(\d{1,2}):(\d{2})", text)
+    if m:
+        hour, minute = int(m.group(1)), m.group(2)
+        if 0 <= hour <= 23:
+            return f"{hour:02d}:{minute}"
     return None
 
 
@@ -134,24 +156,32 @@ def _build_answer(state, appointments):
     return f"מצאתי אותך! {base}."
 
 
-# ---------- טיפול לפי מצב ----------
 def _search_by_words(raw_name):
-    """
-    מחפש כל מילה בנפרד ומחזיר את ההתאמות.
-    רשת ביטחון עד ששכבת ה-NLU תחלץ את השם במדויק.
-    """
+    """מחפש כל מילה בנפרד ומחזיר את ההתאמות. רשת ביטחון עד ששכבת ה-NLU תחלץ שם מדויק."""
     results = api_client.search_customers(raw_name)
     if results:
         return results
 
     seen = {}
     for word in raw_name.split():
-        if len(word) < 3:          # "לי", "בן" - קצרות מדי, יוצרות רעש
+        if len(word) < 3:
             continue
         for c in api_client.search_customers(word):
             seen[c["customer_id"]] = c
     return list(seen.values())
 
+
+def _detect_intent(text):
+    """מזהה כוונה גסה מתוך הטקסט: 'create', 'cancel', או 'show' (ברירת מחדל)."""
+    t = text.strip()
+    if any(word in t for word in ["בטל", "לבטל", "ביטול", "מחק"]):
+        return "cancel"
+    if any(word in t for word in ["קבע", "לקבוע", "תור חדש", "רוצה תור", "להזמין", "לקבל תור"]):
+        return "create"
+    return "show"
+
+
+# ---------- טיפול לפי מצב ----------
 
 def _handle_start(text, state):
     """מחפש לקוח לפי השם. מנסה NLU, ואם נכשל - נופל על חילוץ בקוד."""
@@ -166,7 +196,6 @@ def _handle_start(text, state):
         if parsed.get("claimed_date"):
             state["claimed_date"] = parsed["claimed_date"]
 
-    # רשת ביטחון: אם ה-NLU לא זמין או לא זיהה שם
     if not name:
         claimed = _extract_date(raw)
         if claimed:
@@ -191,6 +220,7 @@ def _handle_start(text, state):
     state["state"] = CLARIFY
     return "יש כמה לקוחות עם השם הזה. מה השם המלא שלך?", state
 
+
 def _handle_clarify(text, state):
     """מסנן את רשימת המועמדים לפי ההבהרה שהמשתמש נתן."""
     text = _strip_date_and_digits(text.strip())
@@ -198,10 +228,7 @@ def _handle_clarify(text, state):
         return "לא הבנתי. מה השם המלא שלך?", state
 
     candidates = state.get("candidates", [])
-    matches = []
-    for c in candidates:
-        if text in c["full_name"]:
-            matches.append(c)
+    matches = [c for c in candidates if text in c["full_name"]]
 
     if len(matches) == 0:
         state["state"] = START
@@ -217,18 +244,18 @@ def _handle_clarify(text, state):
 
     return "עדיין יש כמה התאמות. אפשר את השם המלא במדויק?", state
 
+
 def _handle_await_id(text, state):
     """מאמת תעודת זהות. ההשוואה עצמה נעשית ב-API, בקוד."""
     national_id = _digits_only(text)
     if not national_id:
         return "לא זיהיתי מספר. מה תעודת הזהות שלך?", state
 
-    verified, appointments = api_client.get_appointments(
-        state["candidate_id"], national_id
-    )
+    verified, appointments = api_client.get_appointments(state["candidate_id"], national_id)
 
     if verified:
         state["state"] = VERIFIED
+        state["national_id"] = national_id
         state["appointments"] = appointments
         return _build_answer(state, appointments), state
 
@@ -247,6 +274,103 @@ def _handle_await_id(text, state):
 
 
 def _handle_verified(text, state):
-    """אחרי אימות - עונה על שאלות נוספות מהנתונים ששמורים."""
+    """אחרי אימות - מזהה כוונה: הצגה, יצירה, או ביטול."""
+    intent = _detect_intent(text)
+
+    if intent == "create":
+        state["state"] = AWAIT_NEW_SERVICE
+        return "בשמחה! איזה סוג שירות תרצה לקבוע?", state
+
+    if intent == "cancel":
+        appointments = state.get("appointments", [])
+        active = [a for a in appointments if a.get("status") != "בוטל"]
+        if not active:
+            return "אין לך תורים פתוחים לביטול.", state
+        lines = []
+        for i, a in enumerate(active, start=1):
+            lines.append(f"{i}. {_pretty_date(a['appointment_date'])} בשעה {a['appointment_time']} ({a.get('service_type', '')})")
+        state["state"] = AWAIT_CANCEL_CHOICE
+        return "איזה תור לבטל? " + " | ".join(lines) + " - כתוב את המספר.", state
+
     appointments = state.get("appointments", [])
     return _build_answer(state, appointments), state
+
+
+def _handle_new_service(text, state):
+    """שלב 1 ביצירת תור: סוג השירות."""
+    service = text.strip()
+    if not service:
+        return "לא הבנתי. איזה סוג שירות?", state
+    state["pending_service"] = service
+    state["state"] = AWAIT_NEW_DATE
+    return "מעולה. באיזה תאריך? (לדוגמה: 15.03.2027)", state
+
+
+def _handle_new_date(text, state):
+    """שלב 2 ביצירת תור: התאריך."""
+    parsed_date = _extract_date(text)
+    if not parsed_date:
+        return "לא זיהיתי תאריך. אפשר בפורמט כמו 15.03.2027?", state
+    state["pending_date"] = parsed_date
+    state["state"] = AWAIT_NEW_TIME
+    return "ובאיזו שעה? (לדוגמה: 14:00)", state
+
+
+def _handle_new_time(text, state):
+    """שלב 3 ביצירת תור: השעה, ואז ביצוע בפועל."""
+    parsed_time = _extract_time(text)
+    if not parsed_time:
+        return "לא זיהיתי שעה. אפשר בפורמט כמו 14:00?", state
+
+    verified, created, appointment_id = api_client.create_appointment(
+        state["candidate_id"],
+        state.get("national_id", ""),
+        state["pending_service"],
+        state["pending_date"],
+        parsed_time,
+    )
+
+    state["state"] = VERIFIED
+    state["pending_service"] = None
+    state["pending_date"] = None
+
+    if not verified or not created:
+        return "לא הצלחתי לקבוע את התור. נסה שוב או פנה למשרד.", state
+
+    verified2, appointments = api_client.get_appointments(state["candidate_id"], state.get("national_id", ""))
+    if verified2:
+        state["appointments"] = appointments
+
+    return f"התור נקבע בהצלחה! מספר תור: {appointment_id}.", state
+
+
+def _handle_cancel_choice(text, state):
+    """מקבל את מספר הבחירה, ומבטל את התור המתאים."""
+    digits = _digits_only(text)
+    if not digits:
+        return "אנא כתוב את מספר התור מהרשימה.", state
+
+    choice = int(digits)
+    appointments = state.get("appointments", [])
+    active = [a for a in appointments if a.get("status") != "בוטל"]
+
+    if choice < 1 or choice > len(active):
+        return "מספר לא תקין. אנא בחר מספר מהרשימה שהוצגה.", state
+
+    target = active[choice - 1]
+
+    verified, cancelled = api_client.cancel_appointment(
+        state["candidate_id"], state.get("national_id", ""), target["appointment_id"]
+    )
+
+    state["state"] = VERIFIED
+
+    if not verified or not cancelled:
+        return "לא הצלחתי לבטל את התור. נסה שוב או פנה למשרד.", state
+
+    verified2, appointments = api_client.get_appointments(state["candidate_id"], state.get("national_id", ""))
+    if verified2:
+        state["appointments"] = appointments
+
+    return "התור בוטל בהצלחה.", state
+    
