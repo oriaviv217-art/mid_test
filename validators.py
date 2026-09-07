@@ -12,6 +12,16 @@ _NAME_PATTERN = re.compile(r"^[א-תa-zA-Z][א-תa-zA-Z '\-\.]{1,99}$")
 _EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
+def validate_national_id(national_id):
+    """תעודת זהות: שדה אופציונלי. אם הוזן - חייב להכיל בדיוק 9 ספרות."""
+    if not national_id or not str(national_id).strip():
+        return True, None
+    digits_only = str(national_id).strip().replace("-", "").replace(" ", "")
+    if not digits_only.isdigit() or len(digits_only) != 9:
+        return False, "תעודת זהות לא תקינה (חייבת להכיל בדיוק 9 ספרות)"
+    return True, None
+
+
 def validate_name(name):
     """שם מלא: שדה חובה, 2-100 תווים, אותיות (עברית/אנגלית), רווחים, גרש ומקף בלבד."""
     if not name or not name.strip():

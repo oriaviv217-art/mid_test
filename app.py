@@ -13,6 +13,7 @@ from validators import (
     validate_name,
     validate_phone,
     validate_email,
+    validate_national_id,
     validate_required_text,
     validate_date,
     validate_time,
@@ -120,13 +121,19 @@ def customers_add():
     phone = request.form.get("phone") or None
     email = request.form.get("email") or None
     address = request.form.get("address") or None
+    national_id = request.form.get("national_id") or None
 
-    for is_valid, error in (validate_name(full_name), validate_phone(phone), validate_email(email)):
+    for is_valid, error in (
+        validate_name(full_name),
+        validate_phone(phone),
+        validate_email(email),
+        validate_national_id(national_id),
+    ):
         if not is_valid:
             flash(error, "error")
             return redirect(url_for("customers_list"))
 
-    new_id = add_customer(full_name, phone, email, address)
+    new_id = add_customer(full_name, phone, email, address, national_id)
     if new_id is not None:
         flash(f"הלקוח נוסף בהצלחה! מספר לקוח: {new_id}", "success")
     else:

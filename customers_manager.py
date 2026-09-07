@@ -29,7 +29,7 @@ def _find_duplicate_customer(full_name, phone):
         conn.close()
 
 
-def add_customer(full_name, phone, email, address):
+def add_customer(full_name, phone, email, address, national_id=None):
     """מוסיפה לקוח חדש למערכת ומחזירה את מספר הלקוח שנוצר, או None אם הקלט אינו תקין או שהלקוח כבר קיים."""
     is_valid, error = validate_name(full_name)
     if not is_valid:
@@ -49,16 +49,20 @@ def add_customer(full_name, phone, email, address):
         print(f"שגיאה: לקוח עם אותו שם וטלפון כבר קיים במערכת (מספר לקוח: {duplicate[0]})")
         return None
 
+    # נקה ת"ז לספרות בלבד לפני שמירה
+    clean_nid = "".join(ch for ch in str(national_id) if ch.isdigit()) if national_id else None
+
     conn = get_connection()
     try:
         cursor = conn.execute(
-            "INSERT INTO customers (full_name, phone, email, address) VALUES (?,?,?,?)",
-            (full_name.strip(), phone, email, address)
+            "INSERT INTO customers (full_name, phone, email, address, national_id) VALUES (?,?,?,?,?)",
+            (full_name.strip(), phone, email, address, clean_nid or None)
         )
         conn.commit()
         return cursor.lastrowid
     finally:
         conn.close()
+
 
 
 def get_all_customers():

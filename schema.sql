@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS customers(
     email         TEXT,
     address       TEXT,
     is_deleted    INTEGER NOT NULL DEFAULT 0,
-    is_active     INTEGER NOT NULL DEFAULT 1
+    is_active     INTEGER NOT NULL DEFAULT 1,
+    national_id   TEXT
 );
 
 CREATE TABLE IF NOT EXISTS appointments (
