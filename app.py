@@ -1,11 +1,11 @@
 import os
 import threading
 import webbrowser
-import requests
 from datetime import date
 
-
-from flask import Flask, render_template, request, redirect, url_for, flash, send_file, Response
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file
+from flask_session import Session
+from chatbot.web import bp as chatbot_bp
 
 from db import init_db
 from seed_data import seed_if_empty
@@ -70,6 +70,18 @@ SERVICE_TYPES = [
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-me")
+
+# ---- Server-side session (filesystem) ----
+app.config["SESSION_TYPE"] = "filesystem"
+app.config["SESSION_FILE_DIR"] = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "flask_session_data"
+)
+app.config["SESSION_PERMANENT"] = False
+app.config["SESSION_USE_SIGNER"] = True
+Session(app)
+
+# ---- Chatbot Blueprint ----
+app.register_blueprint(chatbot_bp, url_prefix="/chatbot")
 
 init_db()
 seed_if_empty()
@@ -402,46 +414,7 @@ def leads_undelete(lead_id):
         flash("לא נמצא ליד מחוק עם המספר הזה", "error")
     return redirect(request.referrer or url_for("leads_deleted"))
 
-CHATBOT_INTERNAL_URL = "http://127.0.0.1:5002"
 
-
-@app.route("/chatbot/", defaults={"subpath": ""})
-@app.route("/chatbot/<path:subpath>", methods=["GET", "POST"])
-def chatbot_proxy(subpath):
-    """מעביר בקשות לצ'אטבוט שרץ פנימית, כדי שהוא ייראה כחלק מאותו אתר."""
-    target_url = f"{CHATBOT_INTERNAL_URL}/{subpath}"
-    try:
-        if request.method == "POST":
-            resp = requests.post(target_url, data=request.form, cookies=request.cookies,
-                                  timeout=10, allow_redirects=False)
-        else:
-            resp = requests.get(target_url, params=request.args, cookies=request.cookies,
-                                 timeout=10, allow_redirects=False)
-    except requests.exceptions.RequestException:
-        return "הצ'אטבוט אינו זמין כרגע.", 503
-
-    # אם השרת הפנימי מפנה (redirect) - נתרגם את זה לנתיב תחת /chatbot/
-    if resp.status_code in (301, 302, 303, 307, 308):
-        location = resp.headers.get("Location", "/")
-        # מסירים את הכתובת הפנימית (127.0.0.1:5002) ומשאירים רק את הנתיב
-        if location.startswith(CHATBOT_INTERNAL_URL):
-            location = location[len(CHATBOT_INTERNAL_URL):]
-        new_location = "/chatbot" + location
-        redirect_response = Response(status=resp.status_code)
-        redirect_response.headers["Location"] = new_location
-        for cookie_name, cookie_value in resp.cookies.items():
-            redirect_response.set_cookie(cookie_name, cookie_value)
-        return redirect_response
-
-    excluded_headers = {"content-encoding", "content-length", "transfer-encoding", "connection"}
-    headers = [(k, v) for k, v in resp.headers.items() if k.lower() not in excluded_headers]
-
-    proxy_response = Response(resp.content, resp.status_code, headers)
-
-    for cookie_name, cookie_value in resp.cookies.items():
-        proxy_response.set_cookie(cookie_name, cookie_value)
-
-    return proxy_response
 
 if __name__ == "__main__":
     debug_mode = os.environ.get("FLASK_DEBUG", "0") == "1"
